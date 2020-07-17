@@ -14,10 +14,11 @@ var redisAddress string
 var redisPassword string
 var maxIdleConn int
 var maxActiveConn int
+var logger hclog.Logger
 
 func GetRedis() redis.Conn {
 	globalRedisPoolOnce.Do(func() {
-		globalRedisPool = NewRedisPool()
+		globalRedisPool = NewRedisPool(logger)
 	})
 	return globalRedisPool.Get()
 }
@@ -29,11 +30,12 @@ type RedisConfig struct {
 	MaxIdleConn   int    `json:"max_idle_conn"`
 }
 
-func StartRedisService(redisConfig RedisConfig) {
+func StartRedisService(redisConfig RedisConfig, log hclog.Logger) {
 	redisAddress = redisConfig.Address
 	redisPassword = redisConfig.Password
 	maxActiveConn = redisConfig.MaxActiveConn
 	maxIdleConn = redisConfig.MaxIdleConn
+	logger = log
 }
 
 // 仅供测试用
