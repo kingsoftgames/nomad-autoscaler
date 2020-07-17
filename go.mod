@@ -24,4 +24,5 @@ require (
 	github.com/stretchr/testify v1.5.1
 	github.com/zclconf/go-cty v1.3.1 // indirect
 	golang.org/x/sys v0.0.0-20200124204421-9fbb57f87de9 // indirect
+    github.com/gomodule/redigo v1.8.2
 )
