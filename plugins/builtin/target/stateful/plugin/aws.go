@@ -3,6 +3,7 @@ package plugin
 import (
 	"context"
 	"fmt"
+	"github.com/hashicorp/nomad-autoscaler/plugins/builtin/target/stateful/utils"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -142,7 +143,7 @@ func (t *TargetPlugin) scaleIn(ctx context.Context, asg *autoscaling.AutoScaling
 	return nil
 }
 
-func (t *TargetPlugin) generateScaleReq(num int64, config map[string]string) (*scaleutils.ScaleInReq, error) {
+func (t *TargetPlugin) generateScaleReq(num int64, config map[string]string) (*utils.ScaleInReq, error) {
 
 	// Pull the class key from the config mapping. This is a required value and
 	// we cannot scale without this.
@@ -163,15 +164,15 @@ func (t *TargetPlugin) generateScaleReq(num int64, config map[string]string) (*s
 		drain = d
 	}
 
-	return &scaleutils.ScaleInReq{
+	return &utils.ScaleInReq{
 		Num:           int(num),
 		DrainDeadline: drain,
-		PoolIdentifier: &scaleutils.PoolIdentifier{
-			IdentifierKey: scaleutils.IdentifierKeyClass,
+		PoolIdentifier: &utils.PoolIdentifier{
+			IdentifierKey: utils.IdentifierKeyClass,
 			Value:         class,
 		},
-		RemoteProvider: scaleutils.RemoteProviderAWSInstanceID,
-		NodeIDStrategy: scaleutils.IDStrategyNewestCreateIndex,
+		RemoteProvider: utils.RemoteProviderAWSInstanceID,
+		NodeIDStrategy: utils.IDStrategyNewestCreateIndex,
 	}, nil
 }
 
