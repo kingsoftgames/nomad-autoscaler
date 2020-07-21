@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/hashicorp/nomad-autoscaler/helper/scaleutils"
+	"github.com/hashicorp/nomad-autoscaler/plugins/builtin/target/stateful/utils"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -13,7 +13,7 @@ func TestTargetPlugin_generateScaleReq(t *testing.T) {
 	testCases := []struct {
 		inputNum            int64
 		inputConfig         map[string]string
-		expectedOutputReq   *scaleutils.ScaleInReq
+		expectedOutputReq   *utils.ScaleInReq
 		expectedOutputError error
 		name                string
 	}{
@@ -23,15 +23,15 @@ func TestTargetPlugin_generateScaleReq(t *testing.T) {
 				"node_class":          "high-memory",
 				"node_drain_deadline": "5m",
 			},
-			expectedOutputReq: &scaleutils.ScaleInReq{
+			expectedOutputReq: &utils.ScaleInReq{
 				Num:           2,
 				DrainDeadline: 5 * time.Minute,
-				PoolIdentifier: &scaleutils.PoolIdentifier{
-					IdentifierKey: scaleutils.IdentifierKeyClass,
+				PoolIdentifier: &utils.PoolIdentifier{
+					IdentifierKey: utils.IdentifierKeyClass,
 					Value:         "high-memory",
 				},
-				RemoteProvider: scaleutils.RemoteProviderAWSInstanceID,
-				NodeIDStrategy: scaleutils.IDStrategyNewestCreateIndex,
+				RemoteProvider: utils.RemoteProviderAWSInstanceID,
+				NodeIDStrategy: utils.IDStrategyNewestCreateIndex,
 			},
 			expectedOutputError: nil,
 			name:                "valid request with drain_deadline in config",
@@ -48,15 +48,15 @@ func TestTargetPlugin_generateScaleReq(t *testing.T) {
 			inputConfig: map[string]string{
 				"node_class": "high-memory",
 			},
-			expectedOutputReq: &scaleutils.ScaleInReq{
+			expectedOutputReq: &utils.ScaleInReq{
 				Num:           2,
 				DrainDeadline: 15 * time.Minute,
-				PoolIdentifier: &scaleutils.PoolIdentifier{
-					IdentifierKey: scaleutils.IdentifierKeyClass,
+				PoolIdentifier: &utils.PoolIdentifier{
+					IdentifierKey: utils.IdentifierKeyClass,
 					Value:         "high-memory",
 				},
-				RemoteProvider: scaleutils.RemoteProviderAWSInstanceID,
-				NodeIDStrategy: scaleutils.IDStrategyNewestCreateIndex,
+				RemoteProvider: utils.RemoteProviderAWSInstanceID,
+				NodeIDStrategy: utils.IDStrategyNewestCreateIndex,
 			},
 			expectedOutputError: nil,
 			name:                "drain_deadline not specified within config",
