@@ -11,6 +11,7 @@ import (
 	targetValue "github.com/hashicorp/nomad-autoscaler/plugins/builtin/strategy/target-value/plugin"
 	awsASG "github.com/hashicorp/nomad-autoscaler/plugins/builtin/target/aws-asg/plugin"
 	nomadTarget "github.com/hashicorp/nomad-autoscaler/plugins/builtin/target/nomad/plugin"
+	stateful "github.com/hashicorp/nomad-autoscaler/plugins/builtin/target/stateful/plugin"
 )
 
 // loadInternalPlugin takes the plugin configuration and attempts to load it
@@ -35,6 +36,9 @@ func (pm *PluginManager) loadInternalPlugin(cfg *config.Plugin, pluginType strin
 	case plugins.InternalTargetAWSASG:
 		info.factory = awsASG.PluginConfig.Factory
 		info.driver = "aws-asg"
+	case plugins.InternalTargetStateful:
+		info.factory = stateful.PluginConfig.Factory
+		info.driver = "stateful"
 	default:
 		pm.logger.Error("unsupported internal plugin", "plugin", cfg.Driver)
 		return
@@ -75,7 +79,8 @@ func (pm *PluginManager) useInternal(plugin string) bool {
 		plugins.InternalTargetNomad,
 		plugins.InternalAPMPrometheus,
 		plugins.InternalStrategyTargetValue,
-		plugins.InternalTargetAWSASG:
+		plugins.InternalTargetAWSASG,
+		plugins.InternalTargetStateful:
 		return true
 	default:
 		return false
