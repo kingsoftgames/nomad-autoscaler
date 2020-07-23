@@ -3,14 +3,13 @@ package plugin
 import (
 	"context"
 	"fmt"
-	"github.com/hashicorp/nomad-autoscaler/plugins/builtin/target/stateful/utils"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/aws/external"
 	"github.com/aws/aws-sdk-go-v2/service/autoscaling"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
-	"github.com/hashicorp/nomad-autoscaler/helper/scaleutils"
+	"github.com/hashicorp/nomad-autoscaler/plugins/builtin/target/stateful/utils"
 	"github.com/hashicorp/nomad-autoscaler/plugins/target"
 )
 
@@ -154,7 +153,7 @@ func (t *TargetPlugin) generateScaleReq(num int64, config map[string]string) (*u
 
 	// The drain_deadline is an optional parameter so define out default and
 	// then attempt to find an operator specified value.
-	drain := scaleutils.DefaultDrainDeadline
+	drain := utils.DefaultDrainDeadline
 
 	if drainString, ok := config[target.ConfigKeyDrainDeadline]; ok {
 		d, err := time.ParseDuration(drainString)
