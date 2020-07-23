@@ -39,6 +39,10 @@ const (
 	// InternalTargetAWSASG is the Amazon Web Services AutoScaling Group target
 	// plugin.
 	InternalTargetAWSASG = "aws-asg"
+
+	// InternalTargetStateful is the stateful Services AutoScaling Group target
+	// plugin.
+	InternalTargetStateful = "stateful"
 )
 
 // ConfigKeyNomadConfigInherit is a generic plugin config map key that supports

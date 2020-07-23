@@ -18,7 +18,7 @@ import (
 
 const (
 	// pluginName is the unique name of the this plugin amongst Target plugins.
-	pluginName = "aws-asg"
+	pluginName = "stateful"
 
 	// configKeys represents the known configuration parameters required at
 	// varying points throughout the plugins lifecycle.

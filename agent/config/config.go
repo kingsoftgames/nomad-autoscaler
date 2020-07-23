@@ -188,7 +188,8 @@ func Default() (*Agent, error) {
 		},
 		APMs:       []*Plugin{{Name: plugins.InternalAPMNomad, Driver: plugins.InternalAPMNomad}},
 		Strategies: []*Plugin{{Name: plugins.InternalStrategyTargetValue, Driver: plugins.InternalStrategyTargetValue}},
-		Targets:    []*Plugin{{Name: plugins.InternalTargetNomad, Driver: plugins.InternalTargetNomad}},
+		Targets:    []*Plugin{{Name: plugins.InternalTargetNomad, Driver: plugins.InternalTargetNomad},
+							{Name: plugins.InternalTargetStateful, Driver: plugins.InternalTargetStateful}},
 	}, nil
 }
 
