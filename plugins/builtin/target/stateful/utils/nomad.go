@@ -23,11 +23,13 @@ type ScaleIn struct {
 	// TODO(jrasell) this should be removed once the cluster targets and core
 	//  autoscaler components are updated to handle reconciliation.
 	curNodeID string
+
+	dms *DmsApiClient
 }
 
 // NewScaleInUtils returns a new ScaleIn implementation which provides helper
 // functions for performing scaling in operations.
-func NewScaleInUtils(cfg *api.Config, log hclog.Logger) (*ScaleIn, error) {
+func NewScaleInUtils(cfg *api.Config, dmsCfg *DmsApiConfig, log hclog.Logger) (*ScaleIn, error) {
 
 	client, err := api.NewClient(cfg)
 	if err != nil {
@@ -41,9 +43,15 @@ func NewScaleInUtils(cfg *api.Config, log hclog.Logger) (*ScaleIn, error) {
 		log.Error("failed to identify Nomad Autoscaler nodeID", "error", err)
 	}
 
+	dmsApiClient, err := NewDmsApiClient(dmsCfg)
+	if err != nil {
+		log.Error("failed to identify Nomad Autoscaler nodeID", "error", err)
+	}
+
 	return &ScaleIn{
 		log:       log,
 		nomad:     client,
+		dms:       dmsApiClient,
 		curNodeID: id,
 	}, nil
 }
@@ -71,6 +79,8 @@ func (si *ScaleIn) RunPreScaleInTasks(ctx context.Context, req *ScaleInReq) ([]N
 	}
 
 	//TODO:基于redis过滤nodes
+
+	nodeIDMap, err = si.filterBusyNodes(nodeIDMap)
 
 	// If we have not been able to identify any nodes and get their remote
 	// provider ID we cannot continue.
@@ -178,6 +188,34 @@ func (si *ScaleIn) getRemoteIDMap(nodes []*api.NodeListStub, remoteProvider Remo
 			"node_id", nodeInfo.ID, "remote_id", id)
 
 		out = append(out, NodeID{NomadID: node.ID, RemoteID: id})
+	}
+
+	return out, mErr.ErrorOrNil()
+}
+
+func (si *ScaleIn) filterBusyNodes(nodes []NodeID) ([]NodeID, error) {
+
+	var (
+		out  []NodeID
+		mErr *multierror.Error
+	)
+	nodesStatus, err := si.dms.Dms().List()
+	if err != nil {
+		return out, err
+	}
+
+	for _, node := range nodes {
+
+		if busy, ok := nodesStatus.Nodes[node.NomadID]; ok {
+			//存在
+			if busy {
+				si.log.Debug("identified busy node",
+					"node_id", node.NomadID, "remote_id", node.RemoteID)
+				continue
+			}
+		}
+
+		out = append(out, NodeID{NomadID: node.NomadID, RemoteID: node.RemoteID})
 	}
 
 	return out, mErr.ErrorOrNil()

@@ -9,13 +9,13 @@ type DmsNodes struct {
 }
 
 // List is used to list out all of the nodes
-func (n *Dms) List(q *QueryOptions) (*DmsNodes, *QueryMeta, error) {
+func (n *Dms) List() (*DmsNodes, error) {
 	var resp DmsNodes
-	qm, err := n.client.query("/v1/nodes", &resp, q)
+	err := n.client.query("/v1/nodes", &resp)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
-	return &resp, qm, nil
+	return &resp, nil
 }
 
 // Nodes returns a handle on the node endpoints.

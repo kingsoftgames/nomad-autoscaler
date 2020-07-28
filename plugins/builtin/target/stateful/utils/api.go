@@ -33,46 +33,6 @@ const (
 	AllNamespacesNamespace = "*"
 )
 
-// QueryOptions are used to parametrize a query
-type QueryOptions struct {
-
-	// Set HTTP parameters on the query.
-	Params map[string]string
-
-	// AuthToken is the secret ID of an ACL token
-	AuthToken string
-}
-
-// WriteOptions are used to parametrize a write
-type WriteOptions struct {
-	// AuthToken is the secret ID of an ACL token
-	AuthToken string
-}
-
-// QueryMeta is used to return meta data about a query
-type QueryMeta struct {
-	// LastIndex. This can be used as a WaitIndex to perform
-	// a blocking query
-	LastIndex uint64
-
-	// Time of last contact from the leader for the
-	// server servicing the request
-	LastContact time.Duration
-
-	// How long did the request take
-	RequestTime time.Duration
-}
-
-// WriteMeta is used to return meta data about a write
-type WriteMeta struct {
-	// LastIndex. This can be used as a WaitIndex to perform
-	// a blocking query
-	LastIndex uint64
-
-	// How long did the request take
-	RequestTime time.Duration
-}
-
 // HttpBasicAuth is used to authenticate http client with HTTP Basic Authentication
 type HttpBasicAuth struct {
 	// Username to use for HTTP Basic Authentication
@@ -388,22 +348,22 @@ func (c *DmsApiClient) Address() string {
 
 // GetNodeClient returns a new DmsApiClient that will dial the specified node. If the
 // QueryOptions is set, its region will be used.
-func (c *DmsApiClient) GetDmsClient(address string, tlsEnabled bool, q *QueryOptions) (*DmsApiClient, error) {
-	return c.getDmsClientImpl(address, tlsEnabled, -1, q)
+func (c *DmsApiClient) GetDmsClient(address string, tlsEnabled bool) (*DmsApiClient, error) {
+	return c.getDmsClientImpl(address, tlsEnabled, -1)
 }
 
 // GetNodeClientWithTimeout returns a new DmsApiClient that will dial the specified
 // node using the specified timeout. If the QueryOptions is set, its region will
 // be used.
 func (c *DmsApiClient) GetDmsClientWithTimeout(
-	addr string, tlsEnabled bool, timeout time.Duration, q *QueryOptions) (*DmsApiClient, error) {
-	return c.getDmsClientImpl(addr, tlsEnabled, timeout, q)
+	addr string, tlsEnabled bool, timeout time.Duration) (*DmsApiClient, error) {
+	return c.getDmsClientImpl(addr, tlsEnabled, timeout)
 }
 
 // getNodeClientImpl is the implementation of creating a API client for
 // contacting a node. It takes a function to lookup the node such that it can be
 // mocked during tests.
-func (c *DmsApiClient) getDmsClientImpl(HTTPAddr string, TLSEnabled bool, timeout time.Duration, q *QueryOptions) (*DmsApiClient, error) {
+func (c *DmsApiClient) getDmsClientImpl(HTTPAddr string, TLSEnabled bool, timeout time.Duration) (*DmsApiClient, error) {
 
 	// Get an API client for the node
 	conf := c.config.ClientConfig(HTTPAddr, TLSEnabled)
@@ -435,37 +395,9 @@ type request struct {
 	obj    interface{}
 }
 
-// setQueryOptions is used to annotate the request with
-// additional query options
-func (r *request) setQueryOptions(q *QueryOptions) {
-	if q == nil {
-		return
-	}
-
-	if q.AuthToken != "" {
-		r.token = q.AuthToken
-	}
-
-	for k, v := range q.Params {
-		r.params.Set(k, v)
-	}
-}
-
 // durToMsec converts a duration to a millisecond specified string
 func durToMsec(dur time.Duration) string {
 	return fmt.Sprintf("%dms", dur/time.Millisecond)
-}
-
-// setWriteOptions is used to annotate the request with
-// additional write options
-func (r *request) setWriteOptions(q *WriteOptions) {
-	if q == nil {
-		return
-	}
-
-	if q.AuthToken != "" {
-		r.token = q.AuthToken
-	}
 }
 
 // toHTTP converts the request to an HTTP request
@@ -566,14 +498,13 @@ func (m *multiCloser) Read(p []byte) (int, error) {
 }
 
 // doRequest runs a request with our client
-func (c *DmsApiClient) doRequest(r *request) (time.Duration, *http.Response, error) {
+func (c *DmsApiClient) doRequest(r *request) (*http.Response, error) {
 	req, err := r.toHTTP()
 	if err != nil {
-		return 0, nil, err
+		return nil, err
 	}
-	start := time.Now()
+
 	resp, err := c.httpClient.Do(req)
-	diff := time.Now().Sub(start)
 
 	// If the response is compressed, we swap the body's reader.
 	if resp != nil && resp.Header != nil {
@@ -582,7 +513,7 @@ func (c *DmsApiClient) doRequest(r *request) (time.Duration, *http.Response, err
 		case "gzip":
 			greader, err := gzip.NewReader(resp.Body)
 			if err != nil {
-				return 0, nil, err
+				return nil, err
 			}
 
 			// The gzip reader doesn't close the wrapped reader so we use
@@ -597,18 +528,18 @@ func (c *DmsApiClient) doRequest(r *request) (time.Duration, *http.Response, err
 		resp.Body = reader
 	}
 
-	return diff, resp, err
+	return resp, err
 }
 
 // rawQuery makes a GET request to the specified endpoint but returns just the
 // response body.
-func (c *DmsApiClient) rawQuery(endpoint string, q *QueryOptions) (io.ReadCloser, error) {
+func (c *DmsApiClient) rawQuery(endpoint string) (io.ReadCloser, error) {
 	r, err := c.newRequest("GET", endpoint)
 	if err != nil {
 		return nil, err
 	}
-	r.setQueryOptions(q)
-	_, resp, err := requireOK(c.doRequest(r))
+
+	resp, err := requireOK(c.doRequest(r))
 	if err != nil {
 		return nil, err
 	}
@@ -617,7 +548,7 @@ func (c *DmsApiClient) rawQuery(endpoint string, q *QueryOptions) (io.ReadCloser
 }
 
 // websocket makes a websocket request to the specific endpoint
-func (c *DmsApiClient) websocket(endpoint string, q *QueryOptions) (*websocket.Conn, *http.Response, error) {
+func (c *DmsApiClient) websocket(endpoint string) (*websocket.Conn, *http.Response, error) {
 
 	transport, ok := c.httpClient.Transport.(*http.Transport)
 	if !ok {
@@ -640,7 +571,6 @@ func (c *DmsApiClient) websocket(endpoint string, q *QueryOptions) (*websocket.C
 	if err != nil {
 		return nil, nil, err
 	}
-	r.setQueryOptions(q)
 
 	rhttp, err := r.toHTTP()
 	if err != nil {
@@ -685,136 +615,88 @@ func (c *DmsApiClient) websocket(endpoint string, q *QueryOptions) (*websocket.C
 // query is used to do a GET request against an endpoint
 // and deserialize the response into an interface using
 // standard Nomad conventions.
-func (c *DmsApiClient) query(endpoint string, out interface{}, q *QueryOptions) (*QueryMeta, error) {
+func (c *DmsApiClient) query(endpoint string, out interface{}) error {
 	r, err := c.newRequest("GET", endpoint)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	r.setQueryOptions(q)
-	rtt, resp, err := requireOK(c.doRequest(r))
+
+	resp, err := requireOK(c.doRequest(r))
 	if err != nil {
-		return nil, err
+		return err
 	}
 	defer resp.Body.Close()
 
-	qm := &QueryMeta{}
-	parseQueryMeta(resp, qm)
-	qm.RequestTime = rtt
-
 	if err := decodeBody(resp, out); err != nil {
-		return nil, err
+		return err
 	}
-	return qm, nil
+	return nil
 }
 
 // putQuery is used to do a PUT request when doing a read against an endpoint
 // and deserialize the response into an interface using standard Nomad
 // conventions.
-func (c *DmsApiClient) putQuery(endpoint string, in, out interface{}, q *QueryOptions) (*QueryMeta, error) {
+func (c *DmsApiClient) putQuery(endpoint string, in, out interface{}) error {
 	r, err := c.newRequest("PUT", endpoint)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	r.setQueryOptions(q)
+
 	r.obj = in
-	rtt, resp, err := requireOK(c.doRequest(r))
+	resp, err := requireOK(c.doRequest(r))
 	if err != nil {
-		return nil, err
+		return err
 	}
 	defer resp.Body.Close()
 
-	qm := &QueryMeta{}
-	parseQueryMeta(resp, qm)
-	qm.RequestTime = rtt
-
 	if err := decodeBody(resp, out); err != nil {
-		return nil, err
+		return err
 	}
-	return qm, nil
+	return nil
 }
 
 // write is used to do a PUT request against an endpoint
 // and serialize/deserialized using the standard Nomad conventions.
-func (c *DmsApiClient) write(endpoint string, in, out interface{}, q *WriteOptions) (*WriteMeta, error) {
+func (c *DmsApiClient) write(endpoint string, in, out interface{}) error {
 	r, err := c.newRequest("PUT", endpoint)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	r.setWriteOptions(q)
+
 	r.obj = in
-	rtt, resp, err := requireOK(c.doRequest(r))
+	resp, err := requireOK(c.doRequest(r))
 	if err != nil {
-		return nil, err
+		return err
 	}
 	defer resp.Body.Close()
 
-	wm := &WriteMeta{RequestTime: rtt}
-	parseWriteMeta(resp, wm)
-
 	if out != nil {
 		if err := decodeBody(resp, &out); err != nil {
-			return nil, err
+			return err
 		}
 	}
-	return wm, nil
+	return nil
 }
 
 // delete is used to do a DELETE request against an endpoint
 // and serialize/deserialized using the standard Nomad conventions.
-func (c *DmsApiClient) delete(endpoint string, out interface{}, q *WriteOptions) (*WriteMeta, error) {
+func (c *DmsApiClient) delete(endpoint string, out interface{}) error {
 	r, err := c.newRequest("DELETE", endpoint)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	r.setWriteOptions(q)
-	rtt, resp, err := requireOK(c.doRequest(r))
+
+	resp, err := requireOK(c.doRequest(r))
 	if err != nil {
-		return nil, err
+		return err
 	}
 	defer resp.Body.Close()
 
-	wm := &WriteMeta{RequestTime: rtt}
-	parseWriteMeta(resp, wm)
-
 	if out != nil {
 		if err := decodeBody(resp, &out); err != nil {
-			return nil, err
+			return err
 		}
 	}
-	return wm, nil
-}
-
-// parseQueryMeta is used to help parse query meta-data
-func parseQueryMeta(resp *http.Response, q *QueryMeta) error {
-	header := resp.Header
-
-	// Parse the X-Nomad-Index
-	index, err := strconv.ParseUint(header.Get("X-Nomad-Index"), 10, 64)
-	if err != nil {
-		return fmt.Errorf("Failed to parse X-Nomad-Index: %v", err)
-	}
-	q.LastIndex = index
-
-	// Parse the X-Nomad-LastContact
-	last, err := strconv.ParseUint(header.Get("X-Nomad-LastContact"), 10, 64)
-	if err != nil {
-		return fmt.Errorf("Failed to parse X-Nomad-LastContact: %v", err)
-	}
-	q.LastContact = time.Duration(last) * time.Millisecond
-
-	return nil
-}
-
-// parseWriteMeta is used to help parse write meta-data
-func parseWriteMeta(resp *http.Response, q *WriteMeta) error {
-	header := resp.Header
-
-	// Parse the X-Nomad-Index
-	index, err := strconv.ParseUint(header.Get("X-Nomad-Index"), 10, 64)
-	if err != nil {
-		return fmt.Errorf("Failed to parse X-Nomad-Index: %v", err)
-	}
-	q.LastIndex = index
 	return nil
 }
 
@@ -850,18 +732,18 @@ func encodeBody(obj interface{}) (io.Reader, error) {
 }
 
 // requireOK is used to wrap doRequest and check for a 200
-func requireOK(d time.Duration, resp *http.Response, e error) (time.Duration, *http.Response, error) {
+func requireOK(resp *http.Response, e error) (*http.Response, error) {
 	if e != nil {
 		if resp != nil {
 			resp.Body.Close()
 		}
-		return d, nil, e
+		return nil, e
 	}
 	if resp.StatusCode != 200 {
 		var buf bytes.Buffer
 		io.Copy(&buf, resp.Body)
 		resp.Body.Close()
-		return d, nil, fmt.Errorf("Unexpected response code: %d (%s)", resp.StatusCode, buf.Bytes())
+		return nil, fmt.Errorf("Unexpected response code: %d (%s)", resp.StatusCode, buf.Bytes())
 	}
-	return d, resp, nil
+	return resp, nil
 }
